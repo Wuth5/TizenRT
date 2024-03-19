@@ -331,7 +331,11 @@ static void ip4_forward(struct pbuf *p, struct ip_hdr *iphdr, struct netif *inp)
 #endif							/* LWIP_ICMP */
 		return;
 	}
-
+#if defined(IP_NAT) && (IP_NAT == 1)
+  if(ip_nat_transfer(p, inp, netif) != ERR_OK) {
+    return;
+  }
+#endif
 	/* Incrementally update the IP checksum. */
 	if (IPH_CHKSUM(iphdr) >= PP_HTONS(0xffffU - 0x100)) {
 		IPH_CHKSUM_SET(iphdr, IPH_CHKSUM(iphdr) + PP_HTONS(0x100) + 1);
@@ -461,7 +465,15 @@ err_t ip4_input(struct pbuf *p, struct netif *inp)
 		}
 	}
 #endif
-
+#if defined(IP_NAT) && (IP_NAT == 1)
+  if(ip_nat_enqueue(p, inp) != ERR_OK) {
+    pbuf_free(p);
+    IP_STATS_INC(ip.chkerr);
+    IP_STATS_INC(ip.drop);
+    MIB2_STATS_INC(mib2.ipinhdrerrors);
+    return ERR_OK;
+  }
+#endif
 	/* copy IP addresses to aligned ip_addr_t */
 	ip_addr_copy_from_ip4(ip_data.current_iphdr_dest, iphdr->dest);
 	ip_addr_copy_from_ip4(ip_data.current_iphdr_src, iphdr->src);
